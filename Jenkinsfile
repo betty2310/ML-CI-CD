@@ -13,5 +13,27 @@ pipeline {
                 checkout scm 
             }
         }
+
+        stage("Setup Python Environment") {
+            steps { 
+                echo "Setting up Python environment..."
+                sh '''
+                    python3 -m venv venv 
+                    . venv/bin/activate
+                    pip install --upgrade pip
+                    pip install -r requirements.txt
+                '''
+            }
+        }
+        stage("Train Model") {
+            steps { echo "Training ML model..." 
+                sh '''
+                    . venv/bin/activate
+                    cd src
+                    python train_model.py
+                    cd ..
+                '''
+            }
+        }
     }
 }
