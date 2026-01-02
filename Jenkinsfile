@@ -40,7 +40,7 @@ pipeline {
             steps { echo "Testing model training and predictions..." 
                 sh '''
                     . venv/bin/activate
-                    pytest src/test_model_test.py -v --tb=short
+                    pytest src/train_model_test.py -v --tb=short
                 '''
             }
         }   
