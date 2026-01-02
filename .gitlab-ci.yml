@@ -1,0 +1,85 @@
+stages:
+  - setup
+  - train
+  - test
+  - build
+  - deploy
+  - cleanup
+
+variables:
+  DOCKER_IMAGE: "betty2310/iris-ml-api-gitlab"
+  DOCKER_DRIVER: overlay2
+  PYTHON_VERSION: "3.12"
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  paths:
+    - .cache/pip
+    - venv/
+
+.python_template: &python_setup
+  image: python:${PYTHON_VERSION}-slim
+  before_script:
+    - python -m venv venv
+    - source venv/bin/activate
+    - pip install --upgrade pip
+    - pip install -r src/requirements.txt
+
+setup_dependencies:
+  <<: *python_setup
+  stage: setup
+  script:
+    - echo "Installing dependencies..."
+    - pip list
+  artifacts:
+    paths:
+      - venv/
+    expire_in: "1 hour"
+
+train_model:
+  <<: *python_setup
+  stage: train
+  dependencies:
+    - setup_dependencies
+  script:
+    - echo "Training ML model..."
+    - cd src
+    - python train_model.py
+    - ls -la models/*.pkl
+    - cd ..
+  artifacts:
+    paths:
+      - src/models/model.pkl
+    expire_in: "1 hour"
+
+test_model:
+  <<: *python_setup
+  stage: test
+  dependencies:
+    - setup_dependencies
+    - train_model
+  script:
+    - echo "Testing ML model..."
+    - pytest src/train_model_test.py -v --tb=short
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+
+test_api:
+  <<: *python_setup
+  stage: test
+  dependencies:
+    - setup_dependencies
+    - train_model
+  script:
+    - echo "Testing API."
+    - pytest src/test_app.py -v --tb=short
+
+cleanup_workspace:
+  stage: cleanup
+  image: python:${PYTHON_VERSION}-slim
+  script:
+    - echo "Cleaning up temporary files..."
+    - rm -rf __pycache__
+    - rm -rf .pytest_cache
+    - rm -rf venv
+    - echo "Cleanup completed!"
+  when: always
